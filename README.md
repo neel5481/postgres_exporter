@@ -1,13 +1,13 @@
-[![Build Status](https://travis-ci.org/wrouesnel/postgres_exporter.svg?branch=master)](https://travis-ci.org/wrouesnel/postgres_exporter)
-[![Coverage Status](https://coveralls.io/repos/github/wrouesnel/postgres_exporter/badge.svg?branch=master)](https://coveralls.io/github/wrouesnel/postgres_exporter?branch=master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/wrouesnel/postgres_exporter)](https://goreportcard.com/report/github.com/wrouesnel/postgres_exporter)
-[![Docker Pulls](https://img.shields.io/docker/pulls/wrouesnel/postgres_exporter.svg)](https://hub.docker.com/r/wrouesnel/postgres_exporter/tags)
+[![Build Status](https://circleci.com/gh/prometheus-community/postgres_exporter.svg?style=svg)](https://circleci.com/gh/prometheus-community/postgres_exporter)
+[![Coverage Status](https://coveralls.io/repos/github/prometheus-community/postgres_exporter/badge.svg?branch=master)](https://coveralls.io/github/prometheus-community/postgres_exporter?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/prometheus-community/postgres_exporter)](https://goreportcard.com/report/github.com/prometheus-community/postgres_exporter)
+[![Docker Pulls](https://img.shields.io/docker/pulls/prometheuscommunity/postgres-exporter.svg)](https://hub.docker.com/r/prometheuscommunity/postgres-exporter/tags)
 
 # PostgreSQL Server Exporter
 
 Prometheus exporter for PostgreSQL server metrics.
 
-CI Tested PostgreSQL versions: `9.4`, `9.5`, `9.6`, `10`, `11`
+CI Tested PostgreSQL versions: `9.4`, `9.5`, `9.6`, `10`, `11`, `12`, `13`
 
 ## Quick Start
 This package is available for Docker:
@@ -15,31 +15,26 @@ This package is available for Docker:
 # Start an example database
 docker run --net=host -it --rm -e POSTGRES_PASSWORD=password postgres
 # Connect to it
-docker run --net=host -e DATA_SOURCE_NAME="postgresql://postgres:password@localhost:5432/postgres?sslmode=disable" wrouesnel/postgres_exporter
+docker run \
+  --net=host \
+  -e DATA_SOURCE_NAME="postgresql://postgres:password@localhost:5432/postgres?sslmode=disable" \
+  quay.io/prometheuscommunity/postgres-exporter
 ```
 
 ## Building and running
 
-The build system is based on [Mage](https://magefile.org)
+    git clone https://github.com/prometheus-community/postgres_exporter.git
+    cd postgres_exporter
+    make build
+    ./postgres_exporter <flags>
 
-The default make file behavior is to build the binary:
-```
-$ go get github.com/wrouesnel/postgres_exporter
-$ cd ${GOPATH-$HOME/go}/src/github.com/wrouesnel/postgres_exporter
-$ go run mage.go binary
-$ export DATA_SOURCE_NAME="postgresql://login:password@hostname:port/dbname"
-$ ./postgres_exporter <flags>
-```
+To build the Docker image:
 
-To build the dockerfile, run `go run mage.go docker`.
+    make promu
+    promu crossbuild -p linux/amd64 -p linux/armv7 -p linux/amd64 -p linux/ppc64le
+    make docker
 
-This will build the docker image as `wrouesnel/postgres_exporter:latest`. This
-is a minimal docker image containing *just* postgres_exporter. By default no SSL
-certificates are included, if you need to use SSL you should either bind-mount
-`/etc/ssl/certs/ca-certificates.crt` or derive a new image containing them.
-
-### Vendoring
-Package vendoring is handled with [`govendor`](https://github.com/kardianos/govendor)
+This will build the docker image as `prometheuscommunity/postgres_exporter:${branch}`.
 
 ### Flags
 
@@ -78,12 +73,18 @@ Package vendoring is handled with [`govendor`](https://github.com/kardianos/gove
 * `exclude-databases`
   A list of databases to remove when autoDiscoverDatabases is enabled.
 
+* `include-databases`
+  A list of databases to only include when autoDiscoverDatabases is enabled.
+
 * `log.level`
-  Set logging level: one of `debug`, `info`, `warn`, `error`, `fatal`
+  Set logging level: one of `debug`, `info`, `warn`, `error`.
 
 * `log.format`
-  Set the log output target and format. e.g. `logger:syslog?appname=bob&local=7` or `logger:stdout?json=true`
-  Defaults to `logger:stderr`.
+  Set the log format: one of `logfmt`, `json`.
+
+* `web.config.file`
+  Configuration file to use TLS and/or basic authentication. The format of the
+  file is described [in the exporter-toolkit repository](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md).
 
 ### Environment Variables
 
@@ -140,6 +141,10 @@ The following environment variables configure the exporter:
 * `PG_EXPORTER_EXCLUDE_DATABASES`
   A comma-separated list of databases to remove when autoDiscoverDatabases is enabled. Default is empty string.
 
+* `PG_EXPORTER_INCLUDE_DATABASES`
+  A comma-separated list of databases to only include when autoDiscoverDatabases is enabled. Default is empty string,
+  means allow all.
+
 * `PG_EXPORTER_METRIC_PREFIX`
   A prefix to use for each of the default metrics exported by postgres-exporter. Default is `pg`
 
@@ -192,6 +197,9 @@ To scrape metrics from all databases on a database server, the database DSN's ca
 result a new set of DSN's is created for which the metrics are scraped.
 
 In addition, the option `--exclude-databases` adds the possibily to filter the result from the auto discovery to discard databases you do not need.
+
+If you want to include only subset of databases, you can use option `--include-databases`. Exporter still makes request to
+`pg_database` table, but do scrape from only if database is in include list.
 
 ### Running as non-superuser
 
@@ -277,10 +285,3 @@ GRANT SELECT ON postgres_exporter.pg_stat_statements TO postgres_exporter;
 > ```
 > DATA_SOURCE_NAME=postgresql://postgres_exporter:password@localhost:5432/postgres?sslmode=disable
 > ```
-
-# Hacking
-* To build a copy for your current architecture run `go run mage.go binary`.
-  This will create a symlink to the just built binary in the root directory.
-* To build release tar balls run `go run mage.go release`.
-* Build system is a bit temperamental at the moment since the conversion to mage - I am working on getting it
-  to be a perfect out of the box experience, but am time-constrained on it at the moment.
